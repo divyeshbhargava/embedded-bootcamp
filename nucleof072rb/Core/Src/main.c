@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -34,10 +36,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define CS_PIN GPIO_PIN_4
+#define CS_PORT GPIOA
+#define MIN_COUNTS 3000
+#define MAX_COUNTS 6000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+
+extern TIM_HandleTypeDef htim1;
 
 /* USER CODE END PM */
 
@@ -66,6 +74,48 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
+	void selectADC(){
+		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET);
+	}
+
+	void deselectADC() {
+		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
+	}
+
+	uint16_t readADC(uint8_t channel) {
+		uint8_t txData[2];
+		uint8_t rxData[2];
+		uint8_t adcValue;
+
+		// Command to select ADC channel (Refer to ADC datasheet)
+		txData[0] = 0b00000001;  // Example command (Modify as per datasheet)
+		txData[1] = (channel << 4);  // Shift channel selection bits
+
+		selectADC();  // Pull CS low before sending data
+		HAL_SPI_TransmitReceive(&hspi1, txData, rxData, 2, HAL_MAX_DELAY);
+		deselectADC(); // Pull CS high after communication
+
+		// Process received data (Assuming 10-bit ADC, adjust based on LSB/MSB)
+		adcValue = ((rxData[0] & 0x03) << 8) | rxData[1];  // Extract 10-bit value
+
+		return adcValue;
+
+	}
+
+	void setPWM(uint16_t adcValue) {
+	    uint16_t pwmCounts;
+
+	    // Map ADC value (0-1023) to PWM counts (3000-6000)
+	    pwmCounts = ((adcValue * (MAX_COUNTS - MIN_COUNTS)) / 1023) + MIN_COUNTS;
+
+	    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmCounts);  // Set PWM output
+	}
+
+	void initPWM() {
+	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);  // Start PWM timer
+	}
+
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -87,6 +137,8 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_SPI1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
