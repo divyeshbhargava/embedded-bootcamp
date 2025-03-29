@@ -57,6 +57,47 @@ extern TIM_HandleTypeDef htim1;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void selectADC(){
+		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET);
+	}
+
+void deselectADC() {
+	HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
+}
+
+
+uint16_t readADC(uint8_t channel) {
+	uint8_t txData[3]; //allocating 3 bytes for transmit
+	uint8_t rxData[3]; //allocating 3 bytes for receiving
+	uint8_t adcValue; //integer to store ADC value
+
+	//command to select ADC channel
+	txData[0] = 0b00000001;  //command to initiate
+	txData[1] = (channel << 0);  //shift channel selection bits, channel should not be differential (channel 0 is single-ended)
+
+	selectADC(); //pull GPIO PIN to low, signal to the ADC to listen for SPI commands
+	HAL_SPI_TransmitReceive(&hspi1, txData, rxData, 3, HAL_MAX_DELAY); //transmit and receive SPI data, transfer and receive 3 bytes
+	deselectADC(); //pulls GPIO to high, ends communication
+
+	// Process received data (Assuming 10-bit ADC, adjust based on LSB/MSB)
+	adcValue = ((rxData[0] & 0x03) << 8) | rxData[3];  // Extract 10-bit value
+
+	return adcValue;
+
+}
+
+void setPWM(uint16_t adcValue) {
+	uint16_t pwmCounts;
+
+	//use 1023, highest value for 10 bit ADC (2^10 -1)
+	pwmCounts = ((adcValue * (MAX_COUNTS - MIN_COUNTS)) / 1023) + MIN_COUNTS;
+
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmCounts);  //set PWM output
+}
+
+void initPWM() {
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);  //start PWM timer
+}
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -74,46 +115,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-	void selectADC(){
-		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET);
-	}
 
-	void deselectADC() {
-		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET);
-	}
-
-	uint16_t readADC(uint8_t channel) {
-		uint8_t txData[2];
-		uint8_t rxData[2];
-		uint8_t adcValue;
-
-		// Command to select ADC channel (Refer to ADC datasheet)
-		txData[0] = 0b00000001;  // Example command (Modify as per datasheet)
-		txData[1] = (channel << 4);  // Shift channel selection bits
-
-		selectADC();  // Pull CS low before sending data
-		HAL_SPI_TransmitReceive(&hspi1, txData, rxData, 2, HAL_MAX_DELAY);
-		deselectADC(); // Pull CS high after communication
-
-		// Process received data (Assuming 10-bit ADC, adjust based on LSB/MSB)
-		adcValue = ((rxData[0] & 0x03) << 8) | rxData[1];  // Extract 10-bit value
-
-		return adcValue;
-
-	}
-
-	void setPWM(uint16_t adcValue) {
-	    uint16_t pwmCounts;
-
-	    // Map ADC value (0-1023) to PWM counts (3000-6000)
-	    pwmCounts = ((adcValue * (MAX_COUNTS - MIN_COUNTS)) / 1023) + MIN_COUNTS;
-
-	    __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pwmCounts);  // Set PWM output
-	}
-
-	void initPWM() {
-	    HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);  // Start PWM timer
-	}
 
 
   /* USER CODE END 1 */
@@ -148,7 +150,9 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	  uint16_t adcValue = readADC(0);  //read from channel 0
+	  setPWM(adcValue);  //adjust PWM based on ADC value
+	  HAL_Delay(10);  //small delay
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
