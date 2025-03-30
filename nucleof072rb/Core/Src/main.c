@@ -38,8 +38,9 @@
 /* USER CODE BEGIN PD */
 #define CS_PIN GPIO_PIN_4
 #define CS_PORT GPIOA
-#define MIN_COUNTS 6400
-#define MAX_COUNTS 57600
+//both culminate to 5-10% duty period
+#define MIN_COUNTS 3200 //(5% of counter period)
+#define MAX_COUNTS 57600 //(10% of counter period)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
