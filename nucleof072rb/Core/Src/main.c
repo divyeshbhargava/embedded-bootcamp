@@ -38,8 +38,8 @@
 /* USER CODE BEGIN PD */
 #define CS_PIN GPIO_PIN_4
 #define CS_PORT GPIOA
-#define MIN_COUNTS 3000
-#define MAX_COUNTS 6000
+#define MIN_COUNTS 6400
+#define MAX_COUNTS 57600
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -73,7 +73,7 @@ uint16_t readADC(uint8_t channel) {
 
 	//command to select ADC channel
 	txData[0] = 0b00000001;  //command to initiate
-	txData[1] = (channel << 0);  //shift channel selection bits, channel should not be differential (channel 0 is single-ended)
+	txData[1] = 0b10000000;  //selecting channel 0
 
 	selectADC(); //pull GPIO PIN to low, signal to the ADC to listen for SPI commands
 	HAL_SPI_TransmitReceive(&hspi1, txData, rxData, 3, HAL_MAX_DELAY); //transmit and receive SPI data, transfer and receive 3 bytes
@@ -142,6 +142,8 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+
+  initPWM();
 
   /* USER CODE END 2 */
 
